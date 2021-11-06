@@ -6,7 +6,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql" // Import mysql driver
 	"github.com/jmoiron/sqlx"
-	"github.com/subratohld/modules/db/retry"
+	"github.com/subratohld/retry"
 )
 
 type Pool struct {

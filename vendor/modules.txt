@@ -5,9 +5,9 @@ github.com/go-sql-driver/mysql
 ## explicit; go 1.10
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
-# github.com/subratohld/modules/db/retry v0.0.0-20211105153821-fc3290068762
+# github.com/subratohld/retry v0.0.0-20211106081654-258b0e24afce
 ## explicit; go 1.17
-github.com/subratohld/modules/db/retry
+github.com/subratohld/retry
 # go.uber.org/atomic v1.7.0
 ## explicit; go 1.13
 go.uber.org/atomic

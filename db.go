@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/subratohld/modules/db/retry"
+	"github.com/subratohld/retry"
 	"go.uber.org/multierr"
 )
 
