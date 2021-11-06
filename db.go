@@ -65,7 +65,6 @@ func DB() (pool Sql, err error) {
 	newPool := func(attempt int) error {
 		var err error
 		dbPool, err = NewPool(dsn, *MaxRetries, *MaxCap, *MaxIdle, connMaxLifetime, retriesInterval, RetryableErrors)
-		pool = dbPool
 		return err
 	}
 
@@ -76,6 +75,8 @@ func DB() (pool Sql, err error) {
 	if err != nil {
 		onceDb = sync.Once{}
 	}
+
+	pool = dbPool
 
 	return
 }
