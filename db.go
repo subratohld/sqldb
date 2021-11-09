@@ -3,122 +3,112 @@ package sqldb
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/subratohld/retry"
 	"go.uber.org/multierr"
 )
 
-var (
-	onceDb          sync.Once
-	dbPool          Sql
-	UserName        *string
-	Password        *string
-	Server          *string
-	DBName          *string
-	DBDSN           *string
+type Params struct {
+	DSN             string
+	Host            string
+	Port            string
+	Username        string
+	Password        string
+	Database        string
 	MaxCap          *int
 	MaxIdle         *int
 	ConnMaxLifetime *int
 	MaxRetries      *int
 	RetriesInterval *int
 	RetryableErrors []string
-)
+}
 
-// Creates new if already not created
-func DB() (pool Sql, err error) {
+func DB(param Params) (db Sql, err error) {
 	var dsn string
-	dsn, err = getDsn()
+	dsn, err = getDsn(&param)
 	if err != nil {
 		return
 	}
 
-	if MaxCap == nil {
+	if param.MaxCap == nil {
 		maxCap := 10
-		MaxCap = &maxCap
+		param.MaxCap = &maxCap
 	}
 
-	if MaxRetries == nil {
+	if param.MaxRetries == nil {
 		maxRetries := 5
-		MaxRetries = &maxRetries
+		param.MaxRetries = &maxRetries
 	}
 
-	if MaxIdle == nil {
+	if param.MaxIdle == nil {
 		maxIdle := 5
-		MaxIdle = &maxIdle
+		param.MaxIdle = &maxIdle
 	}
 
-	if RetriesInterval == nil {
+	if param.RetriesInterval == nil {
 		retriesInterval := 5 // value is in seconds
-		RetriesInterval = &retriesInterval
+		param.RetriesInterval = &retriesInterval
 	}
 
-	if ConnMaxLifetime == nil {
+	if param.ConnMaxLifetime == nil {
 		connMaxLifetime := 1200 // value is in seconds
-		ConnMaxLifetime = &connMaxLifetime
+		param.ConnMaxLifetime = &connMaxLifetime
 	}
 
-	var connMaxLifetime time.Duration = time.Duration(*ConnMaxLifetime) * time.Second
-	var retriesInterval time.Duration = time.Duration(*RetriesInterval) * time.Second
+	var connMaxLifetime time.Duration = time.Duration(*param.ConnMaxLifetime) * time.Second
+	var retriesInterval time.Duration = time.Duration(*param.RetriesInterval) * time.Second
 
-	newPool := func(attempt int) error {
+	dbConn := func(attempt int) error {
 		var err error
-		dbPool, err = NewPool(dsn, *MaxRetries, *MaxCap, *MaxIdle, connMaxLifetime, retriesInterval, RetryableErrors)
+		db, err = newDB(dsn, *param.MaxRetries, *param.MaxCap, *param.MaxIdle, connMaxLifetime, retriesInterval, param.RetryableErrors)
 		return err
 	}
 
-	onceDb.Do(func() {
-		err = retry.Do(newPool, *MaxRetries, retriesInterval, RetryableErrors)
-	})
-
-	if err != nil {
-		onceDb = sync.Once{}
-	}
-
-	pool = dbPool
+	err = retry.Do(dbConn, *param.MaxRetries, retriesInterval, param.RetryableErrors)
 
 	return
 }
 
 // Creates new transaction object every time
-func Tx() (tx SqlTx, err error) {
-	db, err := DB()
+func Tx(param Params) (tx SqlTx, err error) {
+	db, err := DB(param)
 	if err != nil {
 		return
 	}
 
-	var retriesInterval time.Duration = time.Duration(*RetriesInterval) * time.Second
+	var retriesInterval time.Duration = time.Duration(*param.RetriesInterval) * time.Second
 
 	sqlTx, err := db.CreateTx()
-	tx = NewTransaction(sqlTx, *MaxRetries, retriesInterval, RetryableErrors)
+	tx = newTransaction(sqlTx, *param.MaxRetries, retriesInterval, param.RetryableErrors)
 
 	return
 }
 
-func getDsn() (dsn string, err error) {
-	if DBDSN != nil && *DBDSN != "" {
-		return *DBDSN, nil
+func getDsn(param *Params) (dsn string, err error) {
+	if param.DSN != "" {
+		return param.DSN, nil
 	}
 
-	if Server == nil || *Server == "" {
-		err = multierr.Append(err, errors.New("db: server address is empty"))
+	if param.Host == "" {
+		err = multierr.Append(err, errors.New("sqldb: host name is empty"))
 	}
 
-	if UserName == nil || *UserName == "" {
-		err = multierr.Append(err, errors.New("db: username is empty"))
+	if param.Port == "" {
+		err = multierr.Append(err, errors.New("sqldb: port is empty"))
 	}
 
-	if Password == nil {
-		err = multierr.Append(err, errors.New("db: password is empty"))
+	if param.Username == "" {
+		err = multierr.Append(err, errors.New("sqldb: username is empty"))
 	}
 
-	if DBName == nil || *DBName == "" {
-		err = multierr.Append(err, errors.New("db: db name is empty"))
+	if param.Database == "" {
+		err = multierr.Append(err, errors.New("sqldb: database name is empty"))
 	}
 
 	if len(multierr.Errors(err)) == 0 {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true", *UserName, *Password, *Server, *DBName)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+			param.Username, param.Password, param.Host, param.Port, param.Database)
 	}
 
 	return
