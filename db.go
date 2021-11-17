@@ -11,6 +11,7 @@ import (
 
 type Params struct {
 	DSN             string
+	Server          string
 	Host            string
 	Port            string
 	Username        string
@@ -90,12 +91,16 @@ func getDsn(param *Params) (dsn string, err error) {
 		return param.DSN, nil
 	}
 
-	if param.Host == "" {
-		err = multierr.Append(err, errors.New("sqldb: host name is empty"))
-	}
+	if param.Server == "" {
+		if param.Host == "" {
+			err = multierr.Append(err, errors.New("sqldb: host name is empty"))
+		}
 
-	if param.Port == "" {
-		err = multierr.Append(err, errors.New("sqldb: port is empty"))
+		if param.Port == "" {
+			err = multierr.Append(err, errors.New("sqldb: port is empty"))
+		}
+
+		param.Server = fmt.Sprintf("%s:%s", param.Host, param.Port)
 	}
 
 	if param.Username == "" {
@@ -107,8 +112,8 @@ func getDsn(param *Params) (dsn string, err error) {
 	}
 
 	if len(multierr.Errors(err)) == 0 {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
-			param.Username, param.Password, param.Host, param.Port, param.Database)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
+			param.Username, param.Password, param.Server, param.Database)
 	}
 
 	return
